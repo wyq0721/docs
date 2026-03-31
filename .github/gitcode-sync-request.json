@@ -1,5 +1,5 @@
 {
   "gitcode_repo": "cjc-compiler-frontend/compiler-performance-panel",
-  "target_dir": "synced/compiler-performance-panel",
-  "branch": "main"
+  "branch": "main",
+  "target_dir": "synced/compiler-performance-panel"
 }
