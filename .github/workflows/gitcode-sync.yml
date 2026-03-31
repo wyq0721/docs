@@ -17,6 +17,9 @@ on:
         required: false
         default: 'main'
         type: string
+  push:
+    paths:
+      - '.github/gitcode-sync-request.json'
 
 jobs:
   sync:
@@ -30,31 +33,70 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Clone from GitCode via HTTPS
-        env:
-          GITCODE_USER: ${{ secrets.GITCODE_USER }}
-          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+      - name: Resolve sync request
         run: |
-          REPO="${{ inputs.gitcode_repo }}"
-          BRANCH="${{ inputs.branch }}"
-          TARGET_DIR="${{ inputs.target_dir }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REPO="${{ inputs.gitcode_repo }}"
+            BRANCH="${{ inputs.branch }}"
+            TARGET_DIR="${{ inputs.target_dir }}"
+          else
+            REQUEST_FILE=".github/gitcode-sync-request.json"
+
+            if [ ! -f "$REQUEST_FILE" ]; then
+              echo "No sync request file found."
+              exit 1
+            fi
+
+            REPO="$(python3 -c 'import json; print(json.load(open(".github/gitcode-sync-request.json", encoding="utf-8")).get("gitcode_repo", ""))')"
+            BRANCH="$(python3 -c 'import json; print(json.load(open(".github/gitcode-sync-request.json", encoding="utf-8")).get("branch", ""))')"
+            TARGET_DIR="$(python3 -c 'import json; print(json.load(open(".github/gitcode-sync-request.json", encoding="utf-8")).get("target_dir", ""))')"
+          fi
+
+          case "$REPO" in
+            */*) ;;
+            *)
+              echo "Invalid gitcode_repo: $REPO"
+              exit 1
+              ;;
+          esac
 
           if [ -z "$TARGET_DIR" ]; then
             TARGET_DIR="synced/$(basename "$REPO")"
           fi
 
+          case "/$TARGET_DIR/" in
+            //*) 
+              echo "Invalid target_dir: $TARGET_DIR"
+              exit 1
+              ;;
+            */../*|*/./*)
+              echo "Invalid target_dir: $TARGET_DIR"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$BRANCH" ]; then
+            BRANCH="main"
+          fi
+
+          echo "GITCODE_REPO=${REPO}" >> "$GITHUB_ENV"
+          echo "GITCODE_BRANCH=${BRANCH}" >> "$GITHUB_ENV"
+          echo "TARGET_DIR=${TARGET_DIR}" >> "$GITHUB_ENV"
           echo "Syncing gitcode.com/${REPO}@${BRANCH} -> ${TARGET_DIR}"
 
-          git clone --depth 1 --branch "$BRANCH" \
-            "https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/${REPO}.git" \
+      - name: Clone from GitCode via HTTPS
+        env:
+          GITCODE_USER: ${{ secrets.GITCODE_USER }}
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          git clone --depth 1 --branch "$GITCODE_BRANCH" \
+            "https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/${GITCODE_REPO}.git" \
             /tmp/gitcode-clone
 
           rm -rf /tmp/gitcode-clone/.git
 
           mkdir -p "$TARGET_DIR"
           rsync -av --delete /tmp/gitcode-clone/ "$TARGET_DIR/"
-
-          echo "TARGET_DIR=${TARGET_DIR}" >> "$GITHUB_ENV"
 
       - name: Commit and push
         run: |
@@ -66,6 +108,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit — already up to date."
           else
-            git commit -m "chore: sync ${{ inputs.gitcode_repo }}@${{ inputs.branch }} from GitCode"
+            git commit -m "chore: sync ${GITCODE_REPO}@${GITCODE_BRANCH} from GitCode"
             git push
           fi

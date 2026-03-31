@@ -27,9 +27,11 @@ documents for AI experience
 - `从 gitcode 同步 cjc-compiler-frontend/compiler-performance-panel 仓库`
 - `把 gitcode 上的 myorg/myrepo 同步到 synced/myrepo 目录`
 
-AI 会触发 workflow，将代码同步后自动 commit 到本仓库。
+AI 会更新 [`.github/gitcode-sync-request.json`](.github/gitcode-sync-request.json) 并自动触发 [`gitcode-sync`](.github/workflows/gitcode-sync.yml) workflow，将代码同步后自动 commit 到本仓库。
 
 同步结果会存放在 `synced/<仓库名>/` 目录下（可通过 `target_dir` 参数自定义）。
+
+如需手动触发，仍可在 GitHub Actions 页面运行 `GitCode Sync` workflow，并填写对应参数。
 
 ### Workflow 参数说明
 
