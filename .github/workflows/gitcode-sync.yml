@@ -47,7 +47,7 @@ jobs:
             REQUEST_FILE=".github/gitcode-sync-request.json"
 
             if [ ! -f "$REQUEST_FILE" ]; then
-              echo "No sync request file found."
+              echo "Sync request file not found: $REQUEST_FILE"
               exit 1
             fi
 
