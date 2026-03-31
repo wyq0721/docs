@@ -1,0 +1,28 @@
+name: GitCode Sync Request
+
+on:
+  push:
+    paths:
+      - '.github/gitcode-sync-request.json'
+
+jobs:
+  request:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout request
+        uses: actions/checkout@v4
+
+      - name: Validate request file
+        run: |
+          python3 - <<'PY'
+          import json
+
+          with open(".github/gitcode-sync-request.json", encoding="utf-8") as fp:
+              request = json.load(fp)
+
+          if "/" not in request.get("gitcode_repo", ""):
+              raise SystemExit("gitcode_repo must be in the form org/repo")
+          PY
