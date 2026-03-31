@@ -1,0 +1,49 @@
+name: Sync compiler-performance-panel (one-time)
+
+on:
+  push:
+    branches:
+      - 'copilot/fetch-compiler-performance-panel'
+    paths:
+      - '.github/workflows/sync-compiler-performance-panel.yml'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: copilot/fetch-compiler-performance-panel
+
+      - name: Clone from GitCode via HTTPS
+        env:
+          GITCODE_USER: ${{ secrets.GITCODE_USER }}
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          git clone --depth 1 --branch main \
+            "https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/cjc-compiler-frontend/compiler-performance-panel.git" \
+            /tmp/gitcode-clone
+
+          rm -rf /tmp/gitcode-clone/.git
+
+          mkdir -p synced/compiler-performance-panel
+          rsync -av --delete /tmp/gitcode-clone/ synced/compiler-performance-panel/
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add synced/compiler-performance-panel
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit — already up to date."
+          else
+            git commit -m "chore: sync cjc-compiler-frontend/compiler-performance-panel from GitCode"
+            git push
+          fi
