@@ -51,9 +51,20 @@ jobs:
               exit 1
             fi
 
-            REPO="$(python3 -c 'import json; print(json.load(open(".github/gitcode-sync-request.json", encoding="utf-8")).get("gitcode_repo", ""))')"
-            BRANCH="$(python3 -c 'import json; print(json.load(open(".github/gitcode-sync-request.json", encoding="utf-8")).get("branch", ""))')"
-            TARGET_DIR="$(python3 -c 'import json; print(json.load(open(".github/gitcode-sync-request.json", encoding="utf-8")).get("target_dir", ""))')"
+            mapfile -t REQUEST_VALUES < <(python3 - <<'PY'
+            import json
+
+            with open(".github/gitcode-sync-request.json", encoding="utf-8") as fp:
+                request = json.load(fp)
+
+            print(request.get("gitcode_repo", ""))
+            print(request.get("branch", ""))
+            print(request.get("target_dir", ""))
+            PY
+            )
+            REPO="${REQUEST_VALUES[0]}"
+            BRANCH="${REQUEST_VALUES[1]}"
+            TARGET_DIR="${REQUEST_VALUES[2]}"
           fi
 
           case "$REPO" in
