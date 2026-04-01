@@ -70,11 +70,28 @@ CLONE_URL="https://gitcode.com/${REPO}.git"
 rm -rf "$TARGET_DIR"
 mkdir -p "$(dirname "$TARGET_DIR")"
 
+ASKPASS_SCRIPT=""
+cleanup() {
+  if [ -n "$ASKPASS_SCRIPT" ] && [ -f "$ASKPASS_SCRIPT" ]; then
+    rm -f "$ASKPASS_SCRIPT"
+  fi
+}
+trap cleanup EXIT
+
 clone_repo() {
   if [ -n "${GITCODE_USER:-}" ] && [ -n "${GITCODE_TOKEN:-}" ]; then
-    git \
-      -c 'credential.helper=!f() { echo "username=$GITCODE_USER"; echo "password=$GITCODE_TOKEN"; }; f' \
-      clone --depth 1 --branch "$BRANCH" "$CLONE_URL" "$TARGET_DIR"
+    ASKPASS_SCRIPT="$(mktemp /tmp/gitcode-askpass.XXXXXX)"
+    cat >"$ASKPASS_SCRIPT" <<'EOF'
+#!/usr/bin/env sh
+case "$1" in
+  *sername*) printf '%s\n' "$GITCODE_USER" ;;
+  *assword*) printf '%s\n' "$GITCODE_TOKEN" ;;
+  *) printf '\n' ;;
+esac
+EOF
+    chmod 700 "$ASKPASS_SCRIPT"
+    GIT_ASKPASS="$ASKPASS_SCRIPT" GIT_TERMINAL_PROMPT=0 \
+      git clone --depth 1 --branch "$BRANCH" "$CLONE_URL" "$TARGET_DIR"
   else
     git clone --depth 1 --branch "$BRANCH" "$CLONE_URL" "$TARGET_DIR"
   fi
@@ -100,7 +117,7 @@ echo "Branch: $BRANCH"
 echo
 
 echo "Top-level entries:"
-find "$TARGET_DIR" -mindepth 1 -maxdepth 1 -printf '  - %f\n' | sort
+LC_ALL=C ls -1A "$TARGET_DIR" | sed 's/^/  - /'
 echo
 
 README_FILES="$(find "$TARGET_DIR" -maxdepth 2 -type f \( -iname 'README' -o -iname 'README.*' \) | sort || true)"
