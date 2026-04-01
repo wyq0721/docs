@@ -78,7 +78,7 @@ jobs:
           fi
 
           case "/$TARGET_DIR/" in
-            //*) 
+            //*)
               echo "Invalid target_dir: $TARGET_DIR"
               exit 1
               ;;

@@ -22,6 +22,9 @@ fi
 REPO="${1:-}"
 BRANCH="${2:-main}"
 TARGET_DIR="${3:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PULL_GUIDE="$REPO_ROOT/gitcode-pull-guide.md"
 
 if [ -z "$REPO" ]; then
   usage >&2
@@ -75,7 +78,7 @@ Common causes:
   - the repository is private and GITCODE_USER/GITCODE_TOKEN are missing
   - the branch name is incorrect
 
-See /home/runner/work/docs/docs/gitcode-pull-guide.md for troubleshooting.
+See $PULL_GUIDE for troubleshooting.
 EOF
   exit 1
 fi
