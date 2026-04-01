@@ -43,8 +43,12 @@ if [ -z "$TARGET_DIR" ]; then
   TARGET_DIR="/tmp/gitcode-analysis/${REPO##*/}"
 fi
 
-case "$TARGET_DIR" in
-  /tmp/*) ;;
+CANONICAL_TARGET_DIR="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$TARGET_DIR")"
+
+case "$CANONICAL_TARGET_DIR" in
+  /tmp/*)
+    TARGET_DIR="$CANONICAL_TARGET_DIR"
+    ;;
   *)
     echo "target_dir must stay under /tmp in the sandbox: $TARGET_DIR" >&2
     exit 1
@@ -62,14 +66,21 @@ if [ -n "${GITCODE_TOKEN:-}" ] && [ -z "${GITCODE_USER:-}" ]; then
 fi
 
 CLONE_URL="https://gitcode.com/${REPO}.git"
-if [ -n "${GITCODE_USER:-}" ] && [ -n "${GITCODE_TOKEN:-}" ]; then
-  CLONE_URL="https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/${REPO}.git"
-fi
 
 rm -rf "$TARGET_DIR"
 mkdir -p "$(dirname "$TARGET_DIR")"
 
-if ! git clone --depth 1 --branch "$BRANCH" "$CLONE_URL" "$TARGET_DIR"; then
+clone_repo() {
+  if [ -n "${GITCODE_USER:-}" ] && [ -n "${GITCODE_TOKEN:-}" ]; then
+    git \
+      -c 'credential.helper=!f() { echo "username=$GITCODE_USER"; echo "password=$GITCODE_TOKEN"; }; f' \
+      clone --depth 1 --branch "$BRANCH" "$CLONE_URL" "$TARGET_DIR"
+  else
+    git clone --depth 1 --branch "$BRANCH" "$CLONE_URL" "$TARGET_DIR"
+  fi
+}
+
+if ! clone_repo; then
   cat <<EOF >&2
 Failed to clone gitcode.com/${REPO}@${BRANCH}
 
@@ -94,7 +105,7 @@ echo
 
 README_FILES="$(find "$TARGET_DIR" -maxdepth 2 -type f \( -iname 'README' -o -iname 'README.*' \) | sort || true)"
 if [ -n "$README_FILES" ]; then
-  echo "README files:"
+  echo "README files (root and one nested level):"
   while IFS= read -r file; do
     [ -n "$file" ] && echo "  - $file"
   done <<EOF
@@ -149,7 +160,7 @@ if [ "$found_source_dir" -eq 0 ]; then
 fi
 echo
 
-echo "File extension summary (top 15):"
+echo "File extension summary (whole repository, top 15):"
 find "$TARGET_DIR" -type f \
   | awk '
       {
