@@ -1,0 +1,71 @@
+name: GitCode Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      gitcode_repo:
+        description: 'GitCode 仓库路径，例如 org/repo-name 或 username/repo-name'
+        required: true
+        type: string
+      target_dir:
+        description: '同步到本仓库的目标目录（相对路径），留空则默认为 synced/<仓库名>'
+        required: false
+        default: ''
+        type: string
+      branch:
+        description: '要同步的分支'
+        required: false
+        default: 'main'
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone from GitCode via HTTPS
+        env:
+          GITCODE_USER: ${{ secrets.GITCODE_USER }}
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          REPO="${{ inputs.gitcode_repo }}"
+          BRANCH="${{ inputs.branch }}"
+          TARGET_DIR="${{ inputs.target_dir }}"
+
+          if [ -z "$TARGET_DIR" ]; then
+            TARGET_DIR="synced/$(basename "$REPO")"
+          fi
+
+          echo "Syncing gitcode.com/${REPO}@${BRANCH} -> ${TARGET_DIR}"
+
+          git clone --depth 1 --branch "$BRANCH" \
+            "https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/${REPO}.git" \
+            /tmp/gitcode-clone
+
+          rm -rf /tmp/gitcode-clone/.git
+
+          mkdir -p "$TARGET_DIR"
+          rsync -av --delete /tmp/gitcode-clone/ "$TARGET_DIR/"
+
+          echo "TARGET_DIR=${TARGET_DIR}" >> "$GITHUB_ENV"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "$TARGET_DIR"
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit — already up to date."
+          else
+            git commit -m "chore: sync ${{ inputs.gitcode_repo }}@${{ inputs.branch }} from GitCode"
+            git push
+          fi
