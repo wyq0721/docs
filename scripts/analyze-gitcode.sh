@@ -43,7 +43,14 @@ if [ -z "$TARGET_DIR" ]; then
   TARGET_DIR="/tmp/gitcode-analysis/${REPO##*/}"
 fi
 
-CANONICAL_TARGET_DIR="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$TARGET_DIR")"
+if command -v python3 >/dev/null 2>&1; then
+  CANONICAL_TARGET_DIR="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$TARGET_DIR")"
+elif command -v realpath >/dev/null 2>&1; then
+  CANONICAL_TARGET_DIR="$(realpath "$TARGET_DIR")"
+else
+  echo "python3 or realpath is required to validate target_dir." >&2
+  exit 1
+fi
 
 case "$CANONICAL_TARGET_DIR" in
   /tmp/*)
@@ -111,6 +118,8 @@ EOF
   exit 1
 fi
 
+rm -rf "$TARGET_DIR/.git"
+
 echo "Cloned to: $TARGET_DIR"
 echo "Repository: $REPO"
 echo "Branch: $BRANCH"
@@ -120,7 +129,7 @@ echo "Top-level entries:"
 LC_ALL=C ls -1A "$TARGET_DIR" | sed 's/^/  - /'
 echo
 
-README_FILES="$(find "$TARGET_DIR" -maxdepth 2 -type f \( -iname 'README' -o -iname 'README.*' \) | sort || true)"
+README_FILES="$(find "$TARGET_DIR" -maxdepth 2 -type f \( -iname 'README' -o -iname 'README.*' \) | sort)"
 if [ -n "$README_FILES" ]; then
   echo "README files (root and one nested level):"
   while IFS= read -r file; do
