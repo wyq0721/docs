@@ -3,9 +3,43 @@ documents for AI experience
 
 ## 文档目录
 
+- [GitCode 分析 Skill](gitcode-analysis-skill.md)
 - [拉取 GitCode 代码仓库常见问题与解决方案](gitcode-pull-guide.md)
 
-## GitCode Sync Skill
+## GitCode Analysis Skill
+
+本仓库内置了一个 **GitCode 分析技能（Skill）**：当用户提到 `gitcode` 并希望“拉取 / clone / 分析 / 总结”某个 GitCode 仓库时，AI 应优先在**当前沙箱**里克隆目标仓库并解析代码，而不是先把仓库同步回本仓库。
+
+Skill 的本地入口脚本：
+
+```bash
+/home/runner/work/docs/docs/scripts/analyze-gitcode.sh <owner/repo> [branch] [target_dir]
+```
+
+默认行为：
+
+1. 在 `/tmp/gitcode-analysis/<repo-name>` 下 clone GitCode 仓库
+2. 列出 README、常见清单文件和源码目录
+3. 给出后续分析提示，供 AI 继续用本地工具读取代码并总结
+
+### 适用场景
+
+- `帮我分析 gitcode 上的 cjc-compiler-frontend/compiler-performance-panel`
+- `拉取 gitcode 仓库然后总结 readme`
+- `看看这个 gitcode 仓库是什么技术栈`
+
+### 私有仓配置
+
+如果目标仓库是私有仓，在沙箱里执行前需要提供：
+
+- `GITCODE_USER`
+- `GITCODE_TOKEN`
+
+其中 `GITCODE_TOKEN` 需要具备 `read_repository` 权限。
+
+更多拉取排障可参考：[拉取 GitCode 代码仓库常见问题与解决方案](gitcode-pull-guide.md)
+
+## GitCode Sync Skill（可选持久化同步）
 
 本仓库内置了一个 **GitCode 同步技能（Skill）**：当你告诉 AI（Copilot Coding Agent）执行 GitCode 相关操作时，它会自动触发 [`gitcode-sync`](.github/workflows/gitcode-sync.yml) GitHub Actions Workflow，将指定 GitCode 仓库的内容同步到本仓库。
 
